@@ -161,7 +161,7 @@ void reb_simulation_update_acceleration_gravity(struct reb_simulation* r){
 #ifndef OPENMP
 #ifdef CUDA
                             // Launch CUDA kernel
-                            launch_gravity_basic_naive(_N_real, _N_active, G, softening2, _gravity_ignore_terms, gb, particles);
+                            launch_gravity_basic_naive(_N_real, _N_active, G, softening2, _gravity_ignore_terms, &gb, particles);
 #endif //CUDA
 // OPENMP off, do O(1/2*N^2)
                             for (int i=starti; i<_N_active; i++){

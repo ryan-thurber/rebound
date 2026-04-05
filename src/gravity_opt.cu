@@ -43,7 +43,7 @@ __global__ void gravity_basic_naive(int N_real, int N_active, double G, double s
 
 // Need a wrapper to launch the kernel from C code
 extern "C" void launch_gravity_basic_naive(int N_real, int N_active, double G, double softening2, unsigned int gravity_ignore_terms,
-                                    reb_vec6d *gb, reb_particle *particles) {
+                                    struct reb_vec6d *gb, struct reb_particle *particles) {
     // Host arrays
     double *host_x;
     double *host_y;
