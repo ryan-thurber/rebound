@@ -4,6 +4,12 @@ SOURCES=rebound.c tree.c particle.c gravity.c integrator.c integrator_whfast.c i
 OBJECTS=$(SOURCES:.c=.$(OBJFILEEXT))
 HEADERS=$(SOURCES:.c=.h)
 
+# CUDA settings
+NVCC = nvcc
+NVCCFLAGS = -O3 -arch=sm_60 --compiler-options '-fPIC -Drestrict=__restrict__'
+CUDA_SOURCES = integrator_leapfrog_cuda.cu
+CUDA_OBJECTS = $(CUDA_SOURCES:.cu=.$(OBJFILEEXT))
+
 all: $(SOURCES) $(LIBREBOUND)
 
 ifneq ($(OS),Windows_NT) 
@@ -12,10 +18,15 @@ ifneq ($(OS),Windows_NT)
 	@echo "Compiling source file $< ..."
 	$(CC) -c $(OPT) $(PREDEF) -o $@ $<
 
-$(LIBREBOUND): $(OBJECTS)
+# CUDA compilation rule
+%.$(OBJFILEEXT): %.cu $(HEADERS)
+	@echo "Compiling CUDA source file $< ..."
+	$(NVCC) $(NVCCFLAGS) -c $< -o $@
+
+$(LIBREBOUND): $(OBJECTS) $(CUDA_OBJECTS)
 	@echo ""        
 	@echo "Linking shared library $@ ..."
-	$(CC) $(OPT) -shared $(OBJECTS) $(LIB) -o $@ 
+	$(CC) $(OPT) -shared $(OBJECTS) $(CUDA_OBJECTS) $(LIB) -L/opt/ohpc/pub/apps/cuda/11.0/lib64 -lcudart -o $@ 
 	
 	@echo ""        
 	@echo "The shared library $< has been created successfully."
@@ -23,7 +34,7 @@ else
 # Windows
 %.$(OBJFILEEXT): %.c $(HEADERS)
 	@echo "Compiling source file $< ..."
-	$(CC) -c $(OPT) $(PREDEF) /Fo: $@ $<
+	$(CC) -c $(OPT) $(PREDEF) /Fo: $@ $
 
 $(LIBREBOUND): $(OBJECTS)
 	@echo ""        
@@ -43,4 +54,3 @@ clean:
 	@echo "Removing coverage files ..."
 	@-$(RM) *.gcda
 	@-$(RM) *.gcno
-	

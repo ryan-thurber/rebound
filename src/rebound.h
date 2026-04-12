@@ -633,6 +633,7 @@ struct reb_simulation {
         REB_INTEGRATOR_WHFAST = 1,      // WHFast integrator, symplectic, 2nd order, up to 11th order correctors
         REB_INTEGRATOR_SEI = 2,         // SEI integrator for shearing sheet simulations, symplectic, needs OMEGA variable
         REB_INTEGRATOR_LEAPFROG = 4,    // LEAPFROG integrator, simple, 2nd order, symplectic
+        REB_INTEGRATOR_LEAPFROG_CUDA = 14,
         REB_INTEGRATOR_NONE = 7,        // Do not integrate anything
         REB_INTEGRATOR_JANUS = 8,       // Bit-wise reversible JANUS integrator.
         REB_INTEGRATOR_MERCURIUS = 9,   // MERCURIUS integrator 

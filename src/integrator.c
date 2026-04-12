@@ -44,6 +44,7 @@
 #include "integrator_janus.h"
 #include "integrator_eos.h"
 #include "integrator_bs.h"
+#include "integrator_leapfrog_cuda.h"
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) > (b) ? (b) : (a))   ///< Returns the minimum of a and b
 
@@ -51,6 +52,9 @@ void reb_integrator_step(struct reb_simulation* r){
     switch(r->integrator){
         case REB_INTEGRATOR_IAS15:
             reb_integrator_ias15_step(r);
+            break;
+        case REB_INTEGRATOR_LEAPFROG_CUDA:
+            reb_integrator_leapfrog_cuda_step(r);
             break;
         case REB_INTEGRATOR_LEAPFROG:
             reb_integrator_leapfrog_step(r);
@@ -132,6 +136,9 @@ void reb_integrator_step(struct reb_simulation* r){
 
 void reb_simulation_synchronize(struct reb_simulation* r){
     switch(r->integrator){
+        case REB_INTEGRATOR_LEAPFROG_CUDA:
+            reb_integrator_leapfrog_cuda_synchronize(r);
+            break;
         case REB_INTEGRATOR_IAS15:
             reb_integrator_ias15_synchronize(r);
             break;
@@ -179,6 +186,7 @@ void reb_simulation_reset_integrator(struct reb_simulation* r){
     r->integrator = REB_INTEGRATOR_IAS15;
     r->gravity = REB_GRAVITY_BASIC; // Some integrators set their own gravity routine. Resetting.
     r->gravity_ignore_terms = 0;
+    reb_integrator_leapfrog_cuda_reset(r);
     reb_integrator_ias15_reset(r);
     reb_integrator_mercurius_reset(r);
     reb_integrator_sei_reset(r);
