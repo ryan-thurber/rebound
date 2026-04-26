@@ -168,10 +168,6 @@ void reb_simulation_update_acceleration_gravity(struct reb_simulation* r){
                             struct reb_vec6d gb = reb_boundary_get_ghostbox(r, gbx,gby,gbz);
                             // All active particle pairs
 #ifndef OPENMP
-#ifdef CUDA
-                            // Launch CUDA kernel
-                            launch_gravity_basic_naive(_N_real, _N_active, G, softening2, _gravity_ignore_terms, &gb, particles);
-#endif //CUDA
 // OPENMP off, do O(1/2*N^2)
                             for (int i=starti; i<_N_active; i++){
                                 if (reb_sigint > 1) return;
@@ -305,6 +301,14 @@ void reb_simulation_update_acceleration_gravity(struct reb_simulation* r){
                 }
             }
             break;
+            case REB_GRAVITY_TREE_GPU:
+			{
+				if(reb_gpu_tree_accel_bridge(r) != 0){
+					reb_simulation_error(r, "GPU tree acceleration failed.");
+					return;
+				}
+			}
+			break;
 # endif CUDA
         case REB_GRAVITY_COMPENSATED:
             {
@@ -577,14 +581,6 @@ void reb_simulation_update_acceleration_gravity(struct reb_simulation* r){
                 }
             }
             break;
-		case REB_GRAVITY_TREE_GPU:
-			{
-				if(reb_gpu_tree_accel_bridge(r) != 0){
-					reb_simulation_error(r, "GPU tree acceleration failed.");
-					return;
-				}
-			}
-			break;
         case REB_GRAVITY_MERCURIUS:
             {
                 double (*_L) (const struct reb_simulation* const r, double d, double dcrit) = r->ri_mercurius.L;
