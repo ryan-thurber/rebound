@@ -4,7 +4,7 @@ endif
 ifneq ($(OS), Windows_NT)
 	ifeq ($(CUDA), 1)
 		CC=nvcc
-		OPT+= -DCUDA -Xcompiler -std=c99 -Xcompiler -Wpointer-arith -D_GNU_SOURCE -Xcompiler -fPIC
+		OPT+= -DCUDA -Xcompiler -std=c99 -Xcompiler -Wpointer-arith -D_GNU_SOURCE -Xcompiler -fPIC -rdc=true
 	else
 		OPT+= -std=c99 -Wpointer-arith -D_GNU_SOURCE -fPIC
 	endif

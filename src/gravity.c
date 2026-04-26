@@ -45,6 +45,7 @@
 #endif
 #ifdef CUDA
 #include "gravity_opt.h"
+#include <cuda_runtime.h>
 #endif
 
 /**
@@ -71,6 +72,13 @@ void reb_simulation_update_acceleration_gravity(struct reb_simulation* r){
     const int _N_real   = N  - r->N_var;
     const int _N_active = ((N_active==-1)?_N_real:N_active);
     const int _testparticle_type   = r->testparticle_type;
+    #ifdef CUDA
+    cudaEvent_t astartEvent, astopEvent;
+    float aelapsedTime;
+    cudaEventCreate(&astartEvent);
+    cudaEventCreate(&astopEvent);
+    cudaEventRecord(astartEvent, 0);
+    #endif
     switch (r->gravity){
         case REB_GRAVITY_NONE: // Do nothing.
             for (int j=0; j<N; j++){
@@ -251,6 +259,52 @@ void reb_simulation_update_acceleration_gravity(struct reb_simulation* r){
                 }
             }
             break;
+# ifdef CUDA
+            case REB_GRAVITY_BASIC_CUDA_1:
+            {
+                const int N_ghost_x = r->N_ghost_x;
+                const int N_ghost_y = r->N_ghost_y;
+                const int N_ghost_z = r->N_ghost_z;
+                for (int i=0; i<N; i++){
+                    particles[i].ax = 0;
+                    particles[i].ay = 0;
+                    particles[i].az = 0;
+                    }
+                // Summing over all Ghost Boxes
+                for (int gbx=-N_ghost_x; gbx<=N_ghost_x; gbx++){
+                    for (int gby=-N_ghost_y; gby<=N_ghost_y; gby++){
+                        for (int gbz=-N_ghost_z; gbz<=N_ghost_z; gbz++){
+                            struct reb_vec6d gb = reb_boundary_get_ghostbox(r, gbx,gby,gbz);
+                            // All active particle pairs
+                            launch_gravity_basic_naive(_N_real, _N_active, G, softening2, _gravity_ignore_terms, &gb, particles);
+                        }
+                    }
+                }
+            }
+            break;
+            case REB_GRAVITY_BASIC_CUDA_2:
+            {
+                const int N_ghost_x = r->N_ghost_x;
+                const int N_ghost_y = r->N_ghost_y;
+                const int N_ghost_z = r->N_ghost_z;
+                for (int i=0; i<N; i++){
+                    particles[i].ax = 0;
+                    particles[i].ay = 0;
+                    particles[i].az = 0;
+                    }
+                // Summing over all Ghost Boxes
+                for (int gbx=-N_ghost_x; gbx<=N_ghost_x; gbx++){
+                    for (int gby=-N_ghost_y; gby<=N_ghost_y; gby++){
+                        for (int gbz=-N_ghost_z; gbz<=N_ghost_z; gbz++){
+                            struct reb_vec6d gb = reb_boundary_get_ghostbox(r, gbx,gby,gbz);
+                            // All active particle pairs
+                            launch_gravity_basic_opt_1(_N_real, _N_active, G, softening2, _gravity_ignore_terms, &gb, particles);
+                        }
+                    }
+                }
+            }
+            break;
+# endif CUDA
         case REB_GRAVITY_COMPENSATED:
             {
                 if (r->N_allocated_gravity_cs<N){
@@ -996,7 +1050,14 @@ void reb_simulation_update_acceleration_gravity(struct reb_simulation* r){
         default:
             reb_exit("Gravity calculation not yet implemented.");
     }
-
+    #ifdef CUDA
+    cudaEventRecord(astopEvent, 0);
+    cudaEventSynchronize(astopEvent);
+    cudaEventElapsedTime(&aelapsedTime, astartEvent, astopEvent);
+    printf("\n");
+    printf("Total compute time (ms): %f \n",aelapsedTime);
+    printf("\n");
+    #endif
     PROFILING_STOP(PROFILING_CAT_GRAVITY);
 }
 

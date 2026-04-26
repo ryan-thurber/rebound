@@ -1,4 +1,4 @@
-export PROFILING=1
+export PROFILING=0
 export OPENGL=1
 export SERVER=0
 include ../../src/Makefile.defs
