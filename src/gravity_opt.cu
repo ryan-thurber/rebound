@@ -249,9 +249,9 @@ extern "C" void launch_gravity_basic_opt_1(int N_real, int N_active, double G, d
     CUDA_CHECK(cudaMemcpy(device_m, host_m, sizeof(double)*max_N, cudaMemcpyHostToDevice));
 
     // Transfer constants
-    CUDA_CHECK(cudaMemcpyToSymbol(G, &d_G, sizeof(double)));
-    CUDA_CHECK(cudaMemcpyToSymbol(softening2, &d_softening2, sizeof(double)));
-    CUDA_CHECK(cudaMemcpyToSymbol(gravity_ignore_terms, &d_gravity_ignore_terms, sizeof(unsigned int)));
+    CUDA_CHECK(cudaMemcpyToSymbol(d_G, &G, sizeof(double)));
+    CUDA_CHECK(cudaMemcpyToSymbol(d_softening2, &softening2, sizeof(double)));
+    CUDA_CHECK(cudaMemcpyToSymbol(d_gravity_ignore_terms, &gravity_ignore_terms, sizeof(unsigned int)));
 
     int threads = 128;
     int blocks = (N_real + threads - 1) / threads;
