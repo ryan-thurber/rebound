@@ -1,7 +1,8 @@
 include Makefile.defs
 
-SOURCES=rebound.c tree.c particle.c gravity.c integrator.c integrator_whfast.c integrator_whfast512.c integrator_saba.c integrator_ias15.c integrator_sei.c integrator_bs.c integrator_leapfrog.c integrator_mercurius.c integrator_trace.c integrator_eos.c boundary.c input.c binarydiff.c output.c collision.c communication_mpi.c display.c tools.c rotations.c derivatives.c simulationarchive.c glad.c integrator_janus.c transformations.c fmemopen.c server.c frequency_analysis.c
-OBJECTS=$(SOURCES:.c=.$(OBJFILEEXT))
+SOURCES=rebound.c tree.c particle.c gravity.c gravity_gpu_bridge.c integrator.c integrator_whfast.c integrator_whfast512.c integrator_saba.c integrator_ias15.c integrator_sei.c integrator_bs.c integrator_leapfrog.c integrator_mercurius.c integrator_trace.c integrator_eos.c boundary.c input.c binarydiff.c output.c collision.c communication_mpi.c display.c tools.c rotations.c derivatives.c simulationarchive.c glad.c integrator_janus.c transformations.c fmemopen.c server.c frequency_analysis.c
+CUOBJECTS=gravity_gpu.$(OBJFILEEXT)
+OBJECTS=$(SOURCES:.c=.$(OBJFILEEXT)) $(CUOBJECTS)
 HEADERS=$(SOURCES:.c=.h)
 
 all: $(SOURCES) $(LIBREBOUND)
@@ -12,10 +13,14 @@ ifneq ($(OS),Windows_NT)
 	@echo "Compiling source file $< ..."
 	$(CC) -c $(OPT) $(PREDEF) -o $@ $<
 
+gravity_gpu.$(OBJFILEEXT): gravity_gpu.cu gravity_gpu.h
+	@echo "Compiling CUDA source file $< ..."
+	nvcc -Xcompiler -fPIC -c gravity_gpu.cu -o gravity_gpu.$(OBJFILEEXT)
+
 $(LIBREBOUND): $(OBJECTS)
 	@echo ""        
 	@echo "Linking shared library $@ ..."
-	$(CC) $(OPT) -shared $(OBJECTS) $(LIB) -o $@ 
+	nvcc -shared $(OBJECTS) $(LIB) -o $@ 
 	
 	@echo ""        
 	@echo "The shared library $< has been created successfully."
@@ -24,6 +29,10 @@ else
 %.$(OBJFILEEXT): %.c $(HEADERS)
 	@echo "Compiling source file $< ..."
 	$(CC) -c $(OPT) $(PREDEF) /Fo: $@ $<
+
+gravity_gpu.$(OBJFILEEXT): gravity_gpu.cu gravity_gpu.h
+	@echo "Compiling CUDA source file $< ..."
+	nvcc -c gravity_gpu.cu -o gravity_gpu.$(OBJFILEEXT)
 
 $(LIBREBOUND): $(OBJECTS)
 	@echo ""        

@@ -62,7 +62,6 @@ int gettimeofday(struct reb_timeval * tp, struct timezone * tzp);
 int asprintf(char **strp, const char *fmt, ...);
 int rand_r (unsigned int *seed);
 #include <io.h>
-#define _TIMEVAL_DEFINED
 #else // Linux and MacOS
 #define reb_timeval timeval
 #include <sys/time.h>
@@ -296,6 +295,7 @@ struct reb_integrator_trace {
     struct reb_particle* REB_RESTRICT particles_backup_additional_forces; // For additional forces
 
     int* encounter_map;             // Map to represent which particles are integrated with BS
+    int* encounter_map_backup;      // Contains encounter map from after pre-ts check. Used to retain memory of CEs flagged at this step.
     struct reb_vec3d com_pos;       // Used to keep track of the centre of mass during the timestep
     struct reb_vec3d com_vel;
 
@@ -658,6 +658,7 @@ struct reb_simulation {
         REB_GRAVITY_MERCURIUS = 4,      // Special gravity routine only for MERCURIUS
         REB_GRAVITY_JACOBI = 5,         // Special gravity routine which includes the Jacobi terms for WH integrators 
         REB_GRAVITY_TRACE = 6,          // Special gravity routine only for TRACE
+		REB_GRAVITY_TREE_GPU = 7,
     } gravity;
 
 
