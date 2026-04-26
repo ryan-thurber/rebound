@@ -14,11 +14,7 @@ ifneq ($(OS), Windows_NT)
 	RM=rm -f
 	LINKORCOPYLIBREBOUND=ln -s -f ../../src/$(LIBREBOUND) .
 	LINKORCOPYLIBREBOUNDMAIN=ln -s -f src/$(LIBREBOUND) .
-	ifeq ($(CUDA), 1)
-		CCPROBLEM=$(CC) -I../../src/ -Xlinker -rpath,./ $(OPT) $(PREDEF) $< -L. -lrebound $(LIB) -o $(EXEREBOUND)
-	else
-		CCPROBLEM=$(CC) -I../../src/ -Wl,-rpath,./ $(OPT) $(PREDEF) $< -L. -lrebound $(LIB) -o $(EXEREBOUND)
-	endif
+	CCPROBLEM=$(CC) -I../../src/ -Wl,-rpath,./ $(OPT) $(PREDEF) $< -L. -lrebound $(LIB) -o $(EXEREBOUND)
 else
 ifeq ($(OPENGL), 1)
 $(warning OpenGL not supported on Windows. Setting OPENGL=0)
@@ -49,11 +45,7 @@ endif
 endif
 # Removed -march=native for now
 ifeq ($(OS), Linux)
-	ifeq ($(CUDA), 1)
-		OPT+= -Xcompiler -Wall -g
-	else
-		OPT+= -Wall -g
-	endif
+	OPT+= -Wall -g
 	LIB+= -lm -lrt
 endif
 ifeq ($(OS), Darwin)
@@ -127,11 +119,7 @@ ifeq ($(OPENMPCLANG), 1)
 	LIB+= -lomp
 else
 	ifneq ($(OS), Windows_NT)
-		ifeq ($(CUDA), 1)
-			OPT+= -Xcompiler -Wno-unknown-pragmas
-		else
-			OPT+= -Wno-unknown-pragmas
-		endif
+		OPT+= -Wno-unknown-pragmas
 	endif
 endif
 endif

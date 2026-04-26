@@ -216,7 +216,7 @@ finish_fields:
         r->particles[l].sim = r;
     }
     reb_tree_delete(r);
-    if (r->gravity==REB_GRAVITY_TREE || r->collision==REB_COLLISION_TREE || r->collision==REB_COLLISION_LINETREE){
+    if (r->gravity==REB_GRAVITY_TREE || r->gravity==REB_GRAVITY_TREE_GPU || r->collision==REB_COLLISION_TREE || r->collision==REB_COLLISION_LINETREE){
         for (unsigned int l=0;l<r->N_allocated;l++){
             reb_tree_add_particle_to_tree(r, l);
         }
