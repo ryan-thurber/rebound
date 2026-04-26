@@ -38,6 +38,7 @@
 #include "boundary.h"
 #include "integrator_mercurius.h"
 #include "integrator_trace.h"
+#include "gravity_gpu_bridge.h"
 #define MAX(a, b) ((a) > (b) ? (a) : (b))    ///< Returns the maximum of a and b
 
 #ifdef MPI
@@ -514,6 +515,14 @@ void reb_simulation_update_acceleration_gravity(struct reb_simulation* r){
                 }
             }
             break;
+		case REB_GRAVITY_TREE_GPU:
+			{
+				if(reb_gpu_tree_accel_bridge(r) != 0){
+					reb_simulation_error(r, "GPU tree acceleration failed.");
+					return;
+				}
+			}
+			break;
         case REB_GRAVITY_MERCURIUS:
             {
                 double (*_L) (const struct reb_simulation* const r, double d, double dcrit) = r->ri_mercurius.L;
