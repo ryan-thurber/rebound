@@ -44,6 +44,7 @@
 #include "integrator_janus.h"
 #include "integrator_eos.h"
 #include "integrator_bs.h"
+#include "integrator_leapfrog_cuda.h"
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) > (b) ? (b) : (a))   ///< Returns the minimum of a and b
 
@@ -51,6 +52,9 @@ void reb_integrator_step(struct reb_simulation* r){
     switch(r->integrator){
         case REB_INTEGRATOR_IAS15:
             reb_integrator_ias15_step(r);
+            break;
+        case REB_INTEGRATOR_LEAPFROG_CUDA:
+            reb_integrator_leapfrog_cuda_step(r);
             break;
         case REB_INTEGRATOR_LEAPFROG:
             reb_integrator_leapfrog_step(r);
@@ -132,6 +136,9 @@ void reb_integrator_step(struct reb_simulation* r){
 
 void reb_simulation_synchronize(struct reb_simulation* r){
     switch(r->integrator){
+        case REB_INTEGRATOR_LEAPFROG_CUDA:
+            reb_integrator_leapfrog_cuda_synchronize(r);
+            break;
         case REB_INTEGRATOR_IAS15:
             reb_integrator_ias15_synchronize(r);
             break;
@@ -179,6 +186,7 @@ void reb_simulation_reset_integrator(struct reb_simulation* r){
     r->integrator = REB_INTEGRATOR_IAS15;
     r->gravity = REB_GRAVITY_BASIC; // Some integrators set their own gravity routine. Resetting.
     r->gravity_ignore_terms = 0;
+    reb_integrator_leapfrog_cuda_reset(r);
     reb_integrator_ias15_reset(r);
     reb_integrator_mercurius_reset(r);
     reb_integrator_sei_reset(r);
@@ -203,7 +211,7 @@ void reb_simulation_update_acceleration(struct reb_simulation* r){
     // Update and simplify tree. 
     // Prepare particles for distribution to other nodes. 
     // This function also creates the tree if called for the first time.
-    if (r->tree_needs_update || r->gravity==REB_GRAVITY_TREE || r->collision==REB_COLLISION_TREE || r->collision==REB_COLLISION_LINETREE){
+    if (r->tree_needs_update || r->gravity==REB_GRAVITY_TREE || r->gravity==REB_GRAVITY_TREE_GPU || r->collision==REB_COLLISION_TREE || r->collision==REB_COLLISION_LINETREE){
         // Check for root crossings.
         reb_boundary_check(r);     
         // Update tree (this will remove particles which left the box)
@@ -215,7 +223,7 @@ void reb_simulation_update_acceleration(struct reb_simulation* r){
     reb_communication_mpi_distribute_particles(r);
 #endif // MPI
 
-    if (r->tree_root!=NULL && r->gravity==REB_GRAVITY_TREE){
+    if (r->tree_root!=NULL && (r->gravity==REB_GRAVITY_TREE || r->gravity==REB_GRAVITY_TREE_GPU)){
         // Update center of mass and quadrupole moments in tree in preparation of force calculation.
         reb_simulation_update_tree_gravity_data(r); 
 #ifdef MPI
@@ -253,9 +261,10 @@ void reb_simulation_update_acceleration(struct reb_simulation* r){
             memcpy(r->ri_mercurius.particles_backup_additional_forces,r->particles,r->N*sizeof(struct reb_particle)); 
             reb_integrator_mercurius_dh_to_inertial(r);
         }
-        if (r->integrator==REB_INTEGRATOR_TRACE){
+        if (r->integrator==REB_INTEGRATOR_TRACE && r->ri_trace.mode != REB_TRACE_MODE_FULL){
             // shift pos and velocity so that external forces are calculated in inertial frame
             // Note: Copying avoids degrading floating point performance
+            // We should NOT do this in FULL mode, already in inertial frame
             if(r->N>r->ri_trace.N_allocated_additional_forces){
                 r->ri_trace.particles_backup_additional_forces = realloc(r->ri_trace.particles_backup_additional_forces, r->N*sizeof(struct reb_particle));
                 r->ri_trace.N_allocated_additional_forces = r->N;
@@ -276,7 +285,7 @@ void reb_simulation_update_acceleration(struct reb_simulation* r){
                 particles[i].vz = backup[i].vz;
             }
         }
-        if (r->integrator==REB_INTEGRATOR_TRACE){
+        if (r->integrator==REB_INTEGRATOR_TRACE && r->ri_trace.mode != REB_TRACE_MODE_FULL){
             struct reb_particle* restrict const particles = r->particles;
             struct reb_particle* restrict const backup = r->ri_trace.particles_backup_additional_forces;
             for (unsigned int i=0;i<r->N;i++){

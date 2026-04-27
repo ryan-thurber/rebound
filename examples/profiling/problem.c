@@ -2,8 +2,8 @@
  * Profiling the shearing sheet example
  *
  * This example demonstrates how to use the profiling tool that
- * comes with REBOUND to find out which parts of your code are 
- * slow. To turn on this option, simple set `PROFILING=1` in 
+ * comes with REBOUND to find out which parts of your code are
+ * slow. To turn on this option, simple set `PROFILING=1` in
  * the Makefile. Make sure to run `make clean` before compiling
  * this example.
  * Note that enabling this option makes REBOUND not thread-safe.
@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include "rebound.h"
+#include "integrator_leapfrog_cuda.h"
 
 double coefficient_of_restitution_bridges(const struct reb_simulation* const r, double v);
 void heartbeat(struct reb_simulation* const r);
@@ -21,7 +22,13 @@ int main(int argc, char* argv[]) {
 
     // Setup constants
     r->opening_angle2    = .5; // This determines the precision of the tree code gravity calculation.
-    r->integrator        = REB_INTEGRATOR_SEI;
+    // Default integrator
+    // r->integrator        = REB_INTEGRATOR_SEI;
+    // CUDA integrator
+    r->integrator        = REB_INTEGRATOR_CUSTOM;
+    r->ri_custom.step 	= reb_integrator_leapfrog_cuda_step;
+	r->ri_custom.synchronize = reb_integrator_leapfrog_cuda_synchronize;
+	r->ri_custom.reset 	= reb_integrator_leapfrog_cuda_reset;
     r->boundary          = REB_BOUNDARY_SHEAR;
     r->gravity           = REB_GRAVITY_TREE;
     r->collision         = REB_COLLISION_TREE;

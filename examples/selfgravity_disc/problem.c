@@ -9,6 +9,7 @@
 #include <math.h>
 #include <time.h>
 #include "rebound.h"
+#include "integrator_leapfrog_cuda.h"
 
 
 void heartbeat(struct reb_simulation* const r);
@@ -22,7 +23,10 @@ int main(int argc, char* argv[]){
     reb_simulation_start_server(r, 1234);
 
     // Setup constants
-    r->integrator       = REB_INTEGRATOR_LEAPFROG;
+    r->integrator 		= REB_INTEGRATOR_CUSTOM;
+	r->ri_custom.step 	= reb_integrator_leapfrog_cuda_step;
+	r->ri_custom.synchronize = reb_integrator_leapfrog_cuda_synchronize;
+	r->ri_custom.reset 	= reb_integrator_leapfrog_cuda_reset;
     r->gravity          = REB_GRAVITY_TREE;
     r->boundary         = REB_BOUNDARY_OPEN;
     r->opening_angle2   = 1.5;          // This constant determines the accuracy of the tree code gravity estimate.
