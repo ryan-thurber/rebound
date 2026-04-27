@@ -157,19 +157,24 @@ __global__ void gravity_basic_opt_1(int N_real, int N_active,
                                     double gbx, double gby, double gbz,
                                     double *x, double *y, double *z, const double *m,
                                     double *ax, double *ay, double *az){
-    // N_real, N_active are loop bounds
-    // G, softening2, and gravity_ignore_terms are constants (could be moved to const memory?)
-    // gbx, gby, gbz arrays store the ghost box x, y, and z
-    // x, y, and z arrays store the particle x, y, and z
-    // m array stores the particle mass
-    // ax, ay, az are the output varaiables for acceleration computed for the particle
-    // Note: particle 0 corresponds to x[0], y[0] , z[0], m[0], ax[0], ay[0], az[0]
     int i = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // Every thread will access every x,y,z coordinate and mass at least once, so load them into shared memory cooperitavely
+    extern __shared__ double s_x[];
+    extern __shared__ double s_y[];
+    extern __shared__ double s_z[];
+    extern __shared__ double s_m[];
+
     if (i < N_real){
+        // Load the particle information into shared memory
+        s_x[i] = x[i];
+        s_y[i] = y[i];
+        s_z[i] = z[i];
+        s_m[i] = m[i];
         // Set x,y,z postiton relative to ghost box
-        double xi = x[i] + gbx;
-        double yi = y[i] + gby;
-        double zi = z[i] + gbz;
+        double xi = s_x[i] + gbx;
+        double yi = s_y[i] + gby;
+        double zi = s_z[i] + gbz;
         // Initialize registers to be used in the calculation
         double dx, dy, dz, _r, prefact;
         double _ax = 0.0, _ay = 0.0, _az = 0.0;
@@ -177,11 +182,11 @@ __global__ void gravity_basic_opt_1(int N_real, int N_active,
             if (d_gravity_ignore_terms==1 && ((j==1 && i==0) || (i==1 && j==0) )) continue;
             if (d_gravity_ignore_terms==2 && ((j==0 || i==0) )) continue;
             if (i==j) continue;
-            dx = xi - x[j];
-            dy = yi - y[j];
-            dz = zi - z[j];
+            dx = xi - s_x[j];
+            dy = yi - s_y[j];
+            dz = zi - s_z[j];
             _r = sqrt(dx*dx + dy*dy + dz*dz + d_softening2);
-            prefact = -d_G/(_r*_r*_r)*m[j];
+            prefact = -d_G/(_r*_r*_r)*s_m[j];
 
             _ax    += prefact*dx;
             _ay    += prefact*dy;
@@ -255,9 +260,10 @@ extern "C" void launch_gravity_basic_opt_1(int N_real, int N_active, double G, d
 
     int threads = 128;
     int blocks = (N_real + threads - 1) / threads;
+    int shm_size = (N_real * sizeof(double) * 4);
 
     //Launch kernel
-    gravity_basic_opt_1<<<blocks,threads>>>(N_real, N_active,
+    gravity_basic_opt_1<<<blocks,threads,shm_size>>>(N_real, N_active,
                                 gb->x, gb->y, gb->z,
                                 device_x, device_y, device_z, device_m,
                                 device_ax, device_ay, device_az);
