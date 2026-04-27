@@ -27,7 +27,7 @@ int main(int argc, char* argv[]){
 	r->ri_custom.step 	= reb_integrator_leapfrog_cuda_step;
 	r->ri_custom.synchronize = reb_integrator_leapfrog_cuda_synchronize;
 	r->ri_custom.reset 	= reb_integrator_leapfrog_cuda_reset;
-    r->gravity          = REB_GRAVITY_BASIC_CUDA_2;
+    r->gravity          = REB_GRAVITY_BASIC_CUDA_3;
     r->boundary         = REB_BOUNDARY_OPEN;
     r->opening_angle2   = 1.5;          // This constant determines the accuracy of the tree code gravity estimate.
     r->G                = 1;            // Gravitational constant
