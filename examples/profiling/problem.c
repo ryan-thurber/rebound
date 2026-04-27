@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include "rebound.h"
+#include "integrator_leapfrog_cuda.h"
 
 double coefficient_of_restitution_bridges(const struct reb_simulation* const r, double v);
 void heartbeat(struct reb_simulation* const r);
@@ -21,9 +22,15 @@ int main(int argc, char* argv[]) {
 
     // Setup constants
     r->opening_angle2    = .5; // This determines the precision of the tree code gravity calculation.
-    r->integrator        = REB_INTEGRATOR_SEI;
+    // Default integrator
+    // r->integrator        = REB_INTEGRATOR_SEI;
+    // CUDA integrator
+    r->integrator        = REB_INTEGRATOR_CUSTOM;
+    r->ri_custom.step 	= reb_integrator_leapfrog_cuda_step;
+	r->ri_custom.synchronize = reb_integrator_leapfrog_cuda_synchronize;
+	r->ri_custom.reset 	= reb_integrator_leapfrog_cuda_reset;
     r->boundary          = REB_BOUNDARY_SHEAR;
-    r->gravity           = REB_GRAVITY_BASIC_CUDA_2;
+    r->gravity           = REB_GRAVITY_TREE;
     r->collision         = REB_COLLISION_TREE;
     r->collision_resolve = reb_collision_resolve_hardsphere;
     double OMEGA         = 0.00013143527;            // 1/s

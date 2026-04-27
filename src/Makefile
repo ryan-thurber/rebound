@@ -4,9 +4,9 @@ SOURCES=rebound.c tree.c particle.c gravity.c gravity_gpu_bridge.c integrator.c 
 OBJECTS:=$(SOURCES:.c=.$(OBJFILEEXT))
 HEADERS:=$(SOURCES:.c=.h)
 ifeq ($(CUDA), 1)
-SOURCES += gravity_opt.cu gravity_gpu.cu
-OBJECTS += gravity_opt.o gravity_gpu.o
-HEADERS += gravity_opt.h gravity_gpu.h
+SOURCES += gravity_opt.cu gravity_gpu.cu integrator_leapfrog_cuda.cu
+OBJECTS += gravity_opt.o gravity_gpu.o integrator_leapfrog_cuda.o
+HEADERS += gravity_opt.h gravity_gpu.h integrator_leapfrog_cuda.h
 endif
 
 all: $(SOURCES) $(LIBREBOUND)
@@ -32,7 +32,7 @@ else
 # Windows
 %.$(OBJFILEEXT): %.c $(HEADERS)
 	@echo "Compiling source file $< ..."
-	$(CC) -c $(OPT) $(PREDEF) /Fo: $@ $<
+	$(CC) -c $(OPT) $(PREDEF) /Fo: $@ $
 
 gravity_gpu.$(OBJFILEEXT): gravity_gpu.cu gravity_gpu.h
 	@echo "Compiling CUDA source file $< ..."
@@ -56,4 +56,3 @@ clean:
 	@echo "Removing coverage files ..."
 	@-$(RM) *.gcda
 	@-$(RM) *.gcno
-
