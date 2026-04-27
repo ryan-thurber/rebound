@@ -271,6 +271,10 @@ extern "C" void launch_gravity_basic_opt_1(int N_real, int N_active, double G, d
                                 gb->x, gb->y, gb->z,
                                 device_x, device_y, device_z, device_m,
                                 device_ax, device_ay, device_az);
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        printf("Launch error: %s\n", cudaGetErrorString(err));
+    }
     cudaDeviceSynchronize();
     // printf("Done with opt version");
 
@@ -302,4 +306,173 @@ extern "C" void launch_gravity_basic_opt_1(int N_real, int N_active, double G, d
     cudaFree(device_ay);
     cudaFree(device_az);
 
+}
+
+#define TILE_SIZE 256
+
+// Optimization 2 - Shared memory with tiling for large particle counts
+__global__ void gravity_basic_opt_2(int N_real, int N_active,
+                                    double gbx, double gby, double gbz,
+                                    double *x, double *y, double *z, const double *m,
+                                    double *ax, double *ay, double *az){
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+
+    extern __shared__ double shared[];
+    double* s_x = shared;
+    double* s_y = shared + TILE_SIZE;
+    double* s_z = shared + 2 * TILE_SIZE;
+    double* s_m = shared + 3 * TILE_SIZE;
+
+    if (i < N_real){
+        // Set x,y,z position relative to ghost box
+        double xi = x[i] + gbx;
+        double yi = y[i] + gby;
+        double zi = z[i] + gbz;
+        // Initialize registers to be used in the calculation
+        double dx, dy, dz, _r, prefact;
+        double _ax = 0.0, _ay = 0.0, _az = 0.0;
+        // Process j particles in tiles
+        for (int tile = 0; tile < N_active; tile += TILE_SIZE) {
+            int tile_end = min(tile + TILE_SIZE, N_active);
+            int tile_size = tile_end - tile;
+
+            // Cooperatively load tile into shared memory
+            for (int k = threadIdx.x; k < tile_size; k += blockDim.x) {
+                int idx = tile + k;
+                s_x[k] = x[idx];
+                s_y[k] = y[idx];
+                s_z[k] = z[idx];
+                s_m[k] = m[idx];
+            }
+            __syncthreads();
+
+            // Compute interactions with this tile
+            for (int jj = 0; jj < tile_size; jj++) {
+                // Overall particle position
+                int j = tile + jj;
+                if (d_gravity_ignore_terms==1 && ((j==1 && i==0) || (i==1 && j==0) )) continue;
+                if (d_gravity_ignore_terms==2 && ((j==0 || i==0) )) continue;
+                if (i==j) continue;
+                dx = xi - s_x[jj];
+                dy = yi - s_y[jj];
+                dz = zi - s_z[jj];
+                _r = sqrt(dx*dx + dy*dy + dz*dz + d_softening2);
+                prefact = -d_G/(_r*_r*_r)*s_m[jj];
+
+                _ax += prefact*dx;
+                _ay += prefact*dy;
+                _az += prefact*dz;
+            }
+            __syncthreads(); // Ensure all threads done with this tile before loading next
+        }
+
+        ax[i] = _ax;
+        ay[i] = _ay;
+        az[i] = _az;
+    }
+}
+
+// Need a wrapper to launch the kernel from C code
+extern "C" void launch_gravity_basic_opt_2(int N_real, int N_active, double G, double softening2, unsigned int gravity_ignore_terms,
+                                    struct reb_vec6d *gb, struct reb_particle *particles) {
+    // Host arrays
+    double *host_x;
+    double *host_y;
+    double *host_z;
+    double *host_m;
+    double *host_ax;
+    double *host_ay;
+    double *host_az;
+    // Device arrays
+    double *device_x;
+    double *device_y;
+    double *device_z;
+    double *device_m;
+    double *device_ax;
+    double *device_ay;
+    double *device_az;
+
+    int max_N = (N_real > N_active) ? N_real : N_active;
+
+    // Allocate host memory
+    host_x = (double*)malloc(sizeof(double)*max_N);
+    host_y = (double*)malloc(sizeof(double)*max_N);
+    host_z = (double*)malloc(sizeof(double)*max_N);
+    host_m = (double*)malloc(sizeof(double)*max_N);
+    host_ax = (double*)malloc(sizeof(double)*N_real);
+    host_ay = (double*)malloc(sizeof(double)*N_real);
+    host_az = (double*)malloc(sizeof(double)*N_real);
+
+    // Initialize host arrays from particles
+    for (int i=0;i<max_N;i++){
+        host_x[i] = particles[i].x;
+        host_y[i] = particles[i].y;
+        host_z[i] = particles[i].z;
+        host_m[i] = particles[i].m;
+    }
+
+    // Allocate device memory
+
+    CUDA_CHECK(cudaMalloc((void **) &device_x, sizeof(double)*max_N));
+    CUDA_CHECK(cudaMalloc((void **) &device_y, sizeof(double)*max_N));
+    CUDA_CHECK(cudaMalloc((void **) &device_z, sizeof(double)*max_N));
+    CUDA_CHECK(cudaMalloc((void **) &device_m, sizeof(double)*max_N));
+    CUDA_CHECK(cudaMalloc((void **) &device_ax, sizeof(double)*N_real));
+    CUDA_CHECK(cudaMalloc((void **) &device_ay, sizeof(double)*N_real));
+    CUDA_CHECK(cudaMalloc((void **) &device_az, sizeof(double)*N_real));
+
+    // Transfer host arrays to device
+    CUDA_CHECK(cudaMemcpy(device_x, host_x, sizeof(double)*max_N, cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(device_y, host_y, sizeof(double)*max_N, cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(device_z, host_z, sizeof(double)*max_N, cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(device_m, host_m, sizeof(double)*max_N, cudaMemcpyHostToDevice));
+
+    // Transfer constants
+    CUDA_CHECK(cudaMemcpyToSymbol(d_G, &G, sizeof(double)));
+    CUDA_CHECK(cudaMemcpyToSymbol(d_softening2, &softening2, sizeof(double)));
+    CUDA_CHECK(cudaMemcpyToSymbol(d_gravity_ignore_terms, &gravity_ignore_terms, sizeof(unsigned int)));
+
+    int threads = 128;
+    int blocks = (N_real + threads - 1) / threads;
+    int shm_size = (TILE_SIZE * sizeof(double) * 4);
+
+    //Launch kernel
+    gravity_basic_opt_2<<<blocks,threads,shm_size>>>(N_real, N_active,
+                                gb->x, gb->y, gb->z,
+                                device_x, device_y, device_z, device_m,
+                                device_ax, device_ay, device_az);
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        printf("Launch error: %s\n", cudaGetErrorString(err));
+    }
+    cudaDeviceSynchronize();
+    // printf("Done with opt version");
+
+    // Transfer device arrays to host
+    CUDA_CHECK(cudaMemcpy(host_ax, device_ax, sizeof(double)*N_real, cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(host_ay, device_ay, sizeof(double)*N_real, cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(host_az, device_az, sizeof(double)*N_real, cudaMemcpyDeviceToHost));
+
+    // Set particle result accelerations
+    for (int i=0;i<N_real;i++){
+        particles[i].ax = host_ax[i];
+        particles[i].ay = host_ay[i];
+        particles[i].az = host_az[i];
+    }
+
+    // Free host and device memory
+    free(host_x);
+    free(host_y);
+    free(host_z);
+    free(host_m);
+    free(host_ax);
+    free(host_ay);
+    free(host_az);
+    cudaFree(device_x);
+    cudaFree(device_y);
+    cudaFree(device_z);
+    cudaFree(device_m);
+    cudaFree(device_ax);
+    cudaFree(device_ay);
+    cudaFree(device_az);
 }

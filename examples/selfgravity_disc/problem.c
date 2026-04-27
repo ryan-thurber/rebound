@@ -36,6 +36,8 @@ int main(int argc, char* argv[]){
     const double boxsize = 10.2;
     reb_simulation_configure_box(r,boxsize,1,1,1);
 
+    r->status = REB_STATUS_PAUSED;
+
     // Setup particles
     double disc_mass = 2e-1;    // Total disc mass
     int N = 10000;            // Number of particles

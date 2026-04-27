@@ -301,6 +301,28 @@ void reb_simulation_update_acceleration_gravity(struct reb_simulation* r){
                 }
             }
             break;
+            case REB_GRAVITY_BASIC_CUDA_3:
+            {
+                const int N_ghost_x = r->N_ghost_x;
+                const int N_ghost_y = r->N_ghost_y;
+                const int N_ghost_z = r->N_ghost_z;
+                for (int i=0; i<N; i++){
+                    particles[i].ax = 0;
+                    particles[i].ay = 0;
+                    particles[i].az = 0;
+                    }
+                // Summing over all Ghost Boxes
+                for (int gbx=-N_ghost_x; gbx<=N_ghost_x; gbx++){
+                    for (int gby=-N_ghost_y; gby<=N_ghost_y; gby++){
+                        for (int gbz=-N_ghost_z; gbz<=N_ghost_z; gbz++){
+                            struct reb_vec6d gb = reb_boundary_get_ghostbox(r, gbx,gby,gbz);
+                            // All active particle pairs
+                            launch_gravity_basic_opt_2(_N_real, _N_active, G, softening2, _gravity_ignore_terms, &gb, particles);
+                        }
+                    }
+                }
+            }
+            break;
             case REB_GRAVITY_TREE_GPU:
 			{
 				if(reb_gpu_tree_accel_bridge(r) != 0){
