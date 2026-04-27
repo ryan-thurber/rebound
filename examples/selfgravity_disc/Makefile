@@ -5,10 +5,9 @@ include ../../src/Makefile.defs
 # CCPROBLEM is defined in Makefile.defs to allow for
 # a compact cross platform Makefile
 .PHONY: all librebound
-
 all: problem.c librebound
 	@echo "Compiling $< ..."
-	$(CCPROBLEM) -L/opt/ohpc/pub/apps/cuda/11.0/lib64 -Wl,-rpath,/opt/ohpc/pub/apps/cuda/11.0/lib64 -lcudart
+	$(CCPROBLEM)
 	@echo ""
 	@echo "Compilation successful. To run REBOUND, execute the file '$(EXEREBOUND)'."
 	@echo ""
@@ -26,7 +25,6 @@ clean:
 	@echo "Cleaning up local directory ..."
 	@-$(RM) $(LIBREBOUND)
 	@-$(RM) $(EXEREBOUND)
-	@-$(RM) integrator_leapfrog_cuda.o
 
 rebound_webgl.html: problem.c
 	@echo "Compiling problem.c with emscripten (WebGL enabled)..."

@@ -159,19 +159,23 @@ __global__ void gravity_basic_opt_1(int N_real, int N_active,
                                     double *ax, double *ay, double *az){
     int i = blockIdx.x * blockDim.x + threadIdx.x;
 
-    // Every thread will access every x,y,z coordinate and mass at least once, so load them into shared memory cooperitavely
-    extern __shared__ double s_x[];
-    extern __shared__ double s_y[];
-    extern __shared__ double s_z[];
-    extern __shared__ double s_m[];
+    extern __shared__ double shared[];
+    double* s_x = shared;
+    double* s_y = shared + N_active;
+    double* s_z = shared + 2 * N_active;
+    double* s_m = shared + 3 * N_active;
+
+    // Cooperatively load all active particles into shared memory
+    for (int k = threadIdx.x; k < N_active; k += blockDim.x) {
+        s_x[k] = x[k];
+        s_y[k] = y[k];
+        s_z[k] = z[k];
+        s_m[k] = m[k];
+    }
+    __syncthreads();
 
     if (i < N_real){
-        // Load the particle information into shared memory
-        s_x[i] = x[i];
-        s_y[i] = y[i];
-        s_z[i] = z[i];
-        s_m[i] = m[i];
-        // Set x,y,z postiton relative to ghost box
+        // Set x,y,z position relative to ghost box
         double xi = s_x[i] + gbx;
         double yi = s_y[i] + gby;
         double zi = s_z[i] + gbz;
@@ -260,7 +264,7 @@ extern "C" void launch_gravity_basic_opt_1(int N_real, int N_active, double G, d
 
     int threads = 128;
     int blocks = (N_real + threads - 1) / threads;
-    int shm_size = (N_real * sizeof(double) * 4);
+    int shm_size = (N_active * sizeof(double) * 4);
 
     //Launch kernel
     gravity_basic_opt_1<<<blocks,threads,shm_size>>>(N_real, N_active,
@@ -268,6 +272,7 @@ extern "C" void launch_gravity_basic_opt_1(int N_real, int N_active, double G, d
                                 device_x, device_y, device_z, device_m,
                                 device_ax, device_ay, device_az);
     cudaDeviceSynchronize();
+    // printf("Done with opt version");
 
     // Transfer device arrays to host
     CUDA_CHECK(cudaMemcpy(host_ax, device_ax, sizeof(double)*N_real, cudaMemcpyDeviceToHost));
