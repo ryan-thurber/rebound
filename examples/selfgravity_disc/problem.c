@@ -23,6 +23,7 @@ int main(int argc, char* argv[]){
     reb_simulation_start_server(r, 1234);
 
     // Setup constants
+    // r->integrator 		= REB_INTEGRATOR_LEAPFROG; // Default integrator
     r->integrator 		= REB_INTEGRATOR_CUSTOM;
 	r->ri_custom.step 	= reb_integrator_leapfrog_cuda_step;
 	r->ri_custom.synchronize = reb_integrator_leapfrog_cuda_synchronize;
