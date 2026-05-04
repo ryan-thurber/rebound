@@ -73,6 +73,11 @@ extern "C" void launch_gravity_basic_naive(int N_real, int N_active, double G, d
     double *device_ay;
     double *device_az;
 
+    // cudaEvent_t astartEvent, astopEvent;
+    // float aelapsedTime;
+    // cudaEventCreate(&astartEvent);
+    // cudaEventCreate(&astopEvent);
+
     int max_N = (N_real > N_active) ? N_real : N_active;
 
     // Allocate host memory
@@ -108,15 +113,20 @@ extern "C" void launch_gravity_basic_naive(int N_real, int N_active, double G, d
     CUDA_CHECK(cudaMemcpy(device_z, host_z, sizeof(double)*max_N, cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(device_m, host_m, sizeof(double)*max_N, cudaMemcpyHostToDevice));
 
-    int threads = 128;
+    int threads = 512;
     int blocks = (N_real + threads - 1) / threads;
 
+    // cudaEventRecord(astartEvent, 0);
     //Launch kernel
     gravity_basic_naive<<<blocks,threads>>>(N_real, N_active, G, softening2, gravity_ignore_terms,
                                 gb->x, gb->y, gb->z,
                                 device_x, device_y, device_z, device_m,
                                 device_ax, device_ay, device_az);
     cudaDeviceSynchronize();
+    // cudaEventRecord(astopEvent, 0);
+    // cudaEventSynchronize(astopEvent);
+    // cudaEventElapsedTime(&aelapsedTime, astartEvent, astopEvent);
+    // printf("Total kernel time (ms): %f \n",aelapsedTime);
 
     // Transfer device arrays to host
     CUDA_CHECK(cudaMemcpy(host_ax, device_ax, sizeof(double)*N_real, cudaMemcpyDeviceToHost));
@@ -308,7 +318,7 @@ extern "C" void launch_gravity_basic_opt_1(int N_real, int N_active, double G, d
 
 }
 
-#define TILE_SIZE 256
+#define TILE_SIZE 32
 
 // Optimization 2 - Shared memory with tiling for large particle counts
 __global__ void gravity_basic_opt_2(int N_real, int N_active,
@@ -392,6 +402,11 @@ extern "C" void launch_gravity_basic_opt_2(int N_real, int N_active, double G, d
     double *device_ay;
     double *device_az;
 
+    // cudaEvent_t astartEvent, astopEvent;
+    // float aelapsedTime;
+    // cudaEventCreate(&astartEvent);
+    // cudaEventCreate(&astopEvent);
+
     int max_N = (N_real > N_active) ? N_real : N_active;
 
     // Allocate host memory
@@ -432,10 +447,11 @@ extern "C" void launch_gravity_basic_opt_2(int N_real, int N_active, double G, d
     CUDA_CHECK(cudaMemcpyToSymbol(d_softening2, &softening2, sizeof(double)));
     CUDA_CHECK(cudaMemcpyToSymbol(d_gravity_ignore_terms, &gravity_ignore_terms, sizeof(unsigned int)));
 
-    int threads = 128;
+    int threads = 512;
     int blocks = (N_real + threads - 1) / threads;
     int shm_size = (TILE_SIZE * sizeof(double) * 4);
 
+    // cudaEventRecord(astartEvent, 0);
     //Launch kernel
     gravity_basic_opt_2<<<blocks,threads,shm_size>>>(N_real, N_active,
                                 gb->x, gb->y, gb->z,
@@ -446,6 +462,10 @@ extern "C" void launch_gravity_basic_opt_2(int N_real, int N_active, double G, d
         printf("Launch error: %s\n", cudaGetErrorString(err));
     }
     cudaDeviceSynchronize();
+    // cudaEventRecord(astopEvent, 0);
+    // cudaEventSynchronize(astopEvent);
+    // cudaEventElapsedTime(&aelapsedTime, astartEvent, astopEvent);
+    // printf("Total kernel time (ms): %f \n",aelapsedTime);
     // printf("Done with opt version");
 
     // Transfer device arrays to host

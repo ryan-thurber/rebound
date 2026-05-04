@@ -27,7 +27,12 @@ int main(int argc, char* argv[]){
 	r->ri_custom.step 	= reb_integrator_leapfrog_cuda_step;
 	r->ri_custom.synchronize = reb_integrator_leapfrog_cuda_synchronize;
 	r->ri_custom.reset 	= reb_integrator_leapfrog_cuda_reset;
-    r->gravity          = REB_GRAVITY_BASIC_CUDA_3;
+    r->gravity          = REB_GRAVITY_BASIC;
+    // r->gravity          = REB_GRAVITY_BASIC_CUDA_1;
+    // r->gravity          = REB_GRAVITY_BASIC_CUDA_2;
+    // r->gravity          = REB_GRAVITY_BASIC_CUDA_3;
+    // r->gravity          = REB_GRAVITY_TREE;
+    // r->gravity          = REB_GRAVITY_TREE_GPU;
     r->boundary         = REB_BOUNDARY_OPEN;
     r->opening_angle2   = 1.5;          // This constant determines the accuracy of the tree code gravity estimate.
     r->G                = 1;            // Gravitational constant
@@ -36,11 +41,12 @@ int main(int argc, char* argv[]){
     const double boxsize = 10.2;
     reb_simulation_configure_box(r,boxsize,1,1,1);
 
-    r->status = REB_STATUS_PAUSED;
+    // Start in a paused state
+    // r->status = REB_STATUS_PAUSED;
 
     // Setup particles
     double disc_mass = 2e-1;    // Total disc mass
-    int N = 10000;            // Number of particles
+    int N = 5000;            // Number of particles
     // Initial conditions
     struct reb_particle star = {0};
     star.m         = 1;
@@ -62,7 +68,7 @@ int main(int argc, char* argv[]){
     }
 
     r->heartbeat = heartbeat;
-    reb_simulation_integrate(r, INFINITY);
+    reb_simulation_integrate(r, 10);
 }
 
 void heartbeat(struct reb_simulation* const r){
