@@ -661,7 +661,8 @@ struct reb_simulation {
         REB_GRAVITY_TRACE = 6,          // Special gravity routine only for TRACE
         REB_GRAVITY_BASIC_CUDA_1 = 7,   // CUDA Basic gravity unoptimized
         REB_GRAVITY_BASIC_CUDA_2 = 8,   // CUDA Basic gravity optimization 1
-		REB_GRAVITY_TREE_GPU = 9,
+        REB_GRAVITY_BASIC_CUDA_3 = 9,   // CUDA Basic gravity optimization 2
+		REB_GRAVITY_TREE_GPU = 10,
     } gravity;
 
 
